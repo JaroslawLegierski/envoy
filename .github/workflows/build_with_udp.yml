@@ -1,0 +1,42 @@
+name: Build Envoy with UDP Proxy
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-envoy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y curl gnupg zip unzip build-essential python3 python3-pip
+
+      - name: Install Bazel
+        run: |
+          curl -fsSL https://bazel.build/bazel-release.pub.gpg | gpg --dearmor > bazel.gpg
+          sudo mv bazel.gpg /usr/share/keyrings/bazel-archive-keyring.gpg
+          echo "deb [signed-by=/usr/share/keyrings/bazel-archive-keyring.gpg] https://storage.googleapis.com/bazel-apt stable jdk1.8" | sudo tee /etc/apt/sources.list.d/bazel.list
+          sudo apt-get update
+          sudo apt-get install -y bazel-7.6.2
+
+      - name: Verify Bazel
+        run: bazel --version
+
+      - name: Build Envoy with UDP Proxy
+        run: |
+          bazel build //source/exe:envoy-static \
+            --define envoy_enable_udp_proxy=true \
+            --copt=-Wno-error=missing-requires \
+            --verbose_failures \
+            --sandbox_debug
+
+      - name: Upload Envoy binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: envoy-static
+          path: bazel-bin/source/exe/envoy-static
